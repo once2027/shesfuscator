@@ -557,6 +557,17 @@ async def explain_cmd(
 
 
 if __name__ == "__main__":
+    import threading
+    from flask import Flask
+
+    app = Flask(__name__)
+
+    @app.route("/")
+    def health():
+        return "ok"
+
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080))), daemon=True).start()
+
     token = os.environ.get("DISCORD_BOT_TOKEN")
     if not token:
         print("No DISCORD_BOT_TOKEN set.\n  export DISCORD_BOT_TOKEN='your-token-here'\n  python3 bot.py")
