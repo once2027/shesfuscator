@@ -1,0 +1,9 @@
+services:
+  - type: worker
+    name: shesfuscator
+    runtime: image
+    image:
+      url: https://github.com/once2027/shesfuscator
+    envVars:
+      - key: DISCORD_BOT_TOKEN
+        sync: false
