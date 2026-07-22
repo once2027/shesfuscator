@@ -163,6 +163,13 @@ _kb("yes_no",
 
 )
 
+# ── Bot Commands / Help ───────────────────────────────────────────────
+
+_kb("bot_capabilities",
+    ["what can you do", "what do you do", "capabilities", "features", "what are your commands", "list commands", "what can you help with", "what are you able to do"],
+    "Here's what I can do:\n\n- `/obfuscate` — Obfuscate Luau code with 7 presets\n- `/deobfuscate` — Reverse custom obfuscation layers\n- `/explain` — Analyze and explain what a script does\n- `/status` — Check bot status\n- `/help` — Show all options\n\nYou can also DM me a `.lua` file to obfuscate, or just chat with me about Luau, Roblox, or obfuscation!"
+)
+
 # ── Shesfuscator / Obfuscation ────────────────────────────────────────
 
 _kb("what_is_obfuscation",
