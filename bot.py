@@ -32,7 +32,7 @@ from obfuscator import (
     CUSTOM_METHOD_INFO,
 )
 from deobfuscator import deobfuscate
-from ai import answer_question, random_fact
+from ai import answer_question, random_fact, clear_history
 from analyzer import explain, analyze
 
 MAX_INPUT_BYTES = 300_000
@@ -294,11 +294,37 @@ async def on_message(message):
 
         # Text message -> AI response
         elif message.content and not message.content.startswith("!"):
-            response = answer_question(message.content)
-            embed = discord.Embed(title="shesfuscator AI", color=EMBED_COLOR)
-            embed.add_field(name=f"Q: {message.content}", value=response, inline=False)
-            embed.set_footer(text=random_fact())
-            await message.channel.send(embed=embed)
+            uid = message.author.id
+            response = answer_question(message.content, uid=uid)
+
+            # Split long responses for Discord's 4096 char embed limit
+            if len(response) <= 4096:
+                embed = discord.Embed(description=response, color=EMBED_COLOR)
+                embed.set_author(name="shesfuscator AI", icon_url=message.author.display_avatar.url)
+                embed.set_footer(text=random_fact())
+                await message.channel.send(embed=embed)
+            else:
+                # Split into chunks
+                chunks = []
+                while response:
+                    if len(response) <= 4096:
+                        chunks.append(response)
+                        break
+                    split_at = response.rfind("\n", 0, 4096)
+                    if split_at == -1:
+                        split_at = response.rfind(" ", 0, 4096)
+                    if split_at == -1:
+                        split_at = 4096
+                    chunks.append(response[:split_at])
+                    response = response[split_at:].lstrip("\n")
+
+                for i, chunk in enumerate(chunks):
+                    embed = discord.Embed(description=chunk, color=EMBED_COLOR)
+                    if i == 0:
+                        embed.set_author(name="shesfuscator AI", icon_url=message.author.display_avatar.url)
+                    if i == len(chunks) - 1:
+                        embed.set_footer(text=random_fact())
+                    await message.channel.send(embed=embed)
 
     await bot.process_commands(message)
 
