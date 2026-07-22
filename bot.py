@@ -33,7 +33,7 @@ from obfuscator import (
 )
 from deobfuscator import deobfuscate
 from ai import answer_question, random_fact
-from analyzer import explain
+from analyzer import explain, analyze
 
 MAX_INPUT_BYTES = 300_000
 SESSION_TIMEOUT = 300
@@ -545,15 +545,75 @@ async def explain_cmd(
             source = code
 
         result = explain(source)
+        info = analyze(source)
 
     except Exception as e:
         await interaction.followup.send(f"**Failed:**\n```\n{type(e).__name__}: {e}\n```")
         return
 
-    embed = discord.Embed(title="shesfuscator \u2014 Code Analysis", color=EMBED_COLOR)
-    embed.add_field(name="Analysis", value=result, inline=False)
-    embed.set_footer(text=random_fact())
-    await interaction.followup.send(embed=embed)
+    # Split analysis into sections and pack into embed fields
+    sections = [s.strip() for s in result.split("\n\n") if s.strip()]
+
+    EMBED_FIELD_LIMIT = 1024
+    EMBED_TOTAL_LIMIT = 6000
+    MAX_FIELDS = 25
+
+    embeds = []
+    current_embed = discord.Embed(title="shesfuscator \u2014 Code Analysis", color=EMBED_COLOR)
+    current_size = len(current_embed.title) + 20  # rough overhead
+    field_count = 0
+
+    for section in sections:
+        lines = section.split("\n")
+        header = lines[0].strip("*") if lines else "Section"
+        body = "\n".join(lines[1:]).strip() if len(lines) > 1 else section
+
+        # If body is too long for one field, split across multiple fields
+        chunks = []
+        while body:
+            if len(body) <= EMBED_FIELD_LIMIT:
+                chunks.append(body)
+                break
+            # Find a good break point
+            split_at = body.rfind("\n", 0, EMBED_FIELD_LIMIT)
+            if split_at == -1:
+                split_at = body.rfind(" ", 0, EMBED_FIELD_LIMIT)
+            if split_at == -1:
+                split_at = EMBED_FIELD_LIMIT
+            chunks.append(body[:split_at])
+            body = body[split_at:].lstrip("\n")
+
+        for i, chunk in enumerate(chunks):
+            field_name = header if i == 0 else f"{header} (cont.)"
+            field_size = len(field_name) + len(chunk)
+
+            # Start new embed if needed
+            if field_count >= MAX_FIELDS or current_size + field_size > EMBED_TOTAL_LIMIT:
+                if current_embed.fields:
+                    embeds.append(current_embed)
+                current_embed = discord.Embed(title="shesfuscator \u2014 Code Analysis", color=EMBED_COLOR)
+                current_size = len(current_embed.title) + 20
+                field_count = 0
+
+            current_embed.add_field(name=field_name[:256], value=chunk[:EMBED_FIELD_LIMIT], inline=False)
+            current_size += field_size + 50  # field overhead
+            field_count += 1
+
+    if current_embed.fields:
+        embeds.append(current_embed)
+
+    if not embeds:
+        embeds.append(discord.Embed(title="shesfuscator \u2014 Code Analysis", description="No significant analysis found.", color=EMBED_COLOR))
+
+    # Add stats footer to last embed
+    embeds[-1].set_footer(
+        text=f"{info['lines_code']} lines | {info['functions']} functions | {info['complexity']['cyclomatic']} cyclomatic complexity | {random_fact()}"
+    )
+
+    # Send first embed as followup, rest as additional messages
+    await interaction.followup.send(embed=embeds[0])
+    for embed in embeds[1:]:
+        await interaction.followup.send(embed=embed)
 
 
 if __name__ == "__main__":
